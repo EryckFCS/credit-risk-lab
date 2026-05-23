@@ -1,0 +1,8 @@
+# Generated artefacts — do NOT commit to git
+*.parquet
+*.pkl
+*.joblib
+# Keep these (human-readable, version-controllable)
+!.gitkeep
+!*.json
+!*.csv
