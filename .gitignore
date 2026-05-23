@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Data (never commit raw data)
+*/data/*.csv
+*/data/*.xlsx
+*/data/*.parquet
+*/data/*.json
+!*/data/.gitkeep
+!*/data/download.sh
+
+# Reports (large HTML/PDF exports)
+*/reports/*.html
+*/reports/*.pdf
+!*/reports/.gitkeep
+
+# Environment
+.env
+.env.local
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Models (binary artifacts, store in DVC/MLflow)
+*.pkl
+*.joblib
+*.h5
+*.pt
