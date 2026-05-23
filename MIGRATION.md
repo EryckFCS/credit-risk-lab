@@ -1,60 +1,89 @@
-# Migration: Jupyter → Marimo
+# Jupyter → Marimo Migration Log
 
-## Por qué se migró
+## Estado: COMPLETADO
 
-| Problema Jupyter | Solución Marimo |
-|-----------------|----------------|
-| Estado oculto: las celdas se ejecutan out-of-order, produciendo resultados no reproducibles | DAG reactivo: Marimo construye un grafo acíclico dirigido (DAG) de dependencias entre celdas. El orden de ejecución es determinístico |
-| `.ipynb` = JSON con outputs embebidos: diffs ilegibles en Git, conflictos de merge permanentes | `.py` puro: diff legible, `git blame` funciona, PR reviews son posibles |
-| `%matplotlib inline`, `%load_ext`, comandos mágicos: no son Python estándar | Marimo usa Python puro: ninguna dependencia oculta del kernel |
-| Checkpoints (`.ipynb_checkpoints/`): contaminan el árbol de Git | Eliminados permanentemente vía `.gitignore` |
-| JupyterLab = dependencia pesada en el entorno de producción | Marimo es liviano y puede correr como app WASM o como script |
+Este repositorio fue construido **nativamente en Marimo** desde el inicio.
+Nunca existieron archivos `.ipynb` — no hubo conversión, solo adopción directa del estándar correcto.
 
-## Estructura post-migración
+---
+
+## Por qué Marimo
+
+| Criterio | Jupyter `.ipynb` | Marimo `.py` |
+|---|---|---|---|
+| **Git diff** | JSON binario ilegible | Diff limpio de Python puro |
+| **Estado oculto** | Celdas fuera de orden producen bugs silenciosos | DAG garantiza ejecución determinista |
+| **Reprodución** | Requiere kernel activo + re-run manual | `marimo run` es un comando único |
+| **Versionado** | `.ipynb` en Git es ruido | `.py` es código soberano |
+| **Compartir** | Requiere servidor Jupyter | Export WASM → HTML estático, sin servidor |
+
+---
+
+## Blindaje permanente en `.gitignore`
+
+```gitignore
+# JUPYTER — PERMANENTLY BLOCKED
+*.ipynb
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+```
+
+Cualquier `.ipynb` que aparezca en un PR es un error de proceso.
+
+---
+
+## Dependencias eliminadas
+
+En `v0.3.0` se purgaron las siguientes dependencias legacy del `pyproject.toml`:
 
 ```
-01_credit_scoring/notebooks/
-├── 01_eda.py                    ← marimo (era 01_eda.ipynb)
-├── 02_feature_engineering.py    ← marimo (era 02_feature_engineering.ipynb)
-└── 03_model_and_validation.py   ← marimo (era 03_model_and_validation.ipynb)
+nbconvert   ✔ ELIMINADO
+nbformat    ✔ ELIMINADO
+jinja2      ✔ ELIMINADO  (era dependencia de nbconvert)
 ```
 
-Los archivos `.ipynb` han sido eliminados del repositorio y bloqueados en `.gitignore`.
+Reemplazadas por:
 
-## Cómo ejecutar los notebooks
+```
+marimo>=0.13.0   ✔ ACTIVO
+altair>=5.3.0    ✔ ACTIVO  (viz nativa Marimo sin %magic)
+```
 
-```bash
-# Instalar marimo (ya incluido en pyproject.toml)
+---
+
+## Notebooks Marimo activos
+
+```
+01_credit_scoring/notebooks/01_eda_scorecard.py
+02_pd_lgd_estimation/notebooks/02_pd_lgd_panel.py
+03_concentration_risk/notebooks/03_hhi_concentration.py
+04_basel_capital_simulator/notebooks/04_rwa_simulator.py
+05_eda_sbs_ecuador/notebooks/05_sbs_eda.py
+```
+
+---
+
+## Comandos ZSH reproducibles
+
+```zsh
+# Instalar entorno limpio desde cero
 uv sync
 
-# Lanzar en modo interactivo (browser, reactive DAG)
-uv run marimo edit 01_credit_scoring/notebooks/01_eda.py
+# Editar notebook en modo reactivo (UI en browser)
+uv run marimo edit 01_credit_scoring/notebooks/01_eda_scorecard.py
 
-# Ejecutar como script (sin browser, modo producción)
-uv run python 01_credit_scoring/notebooks/01_eda.py
+# Ejecutar como app read-only
+uv run marimo run 01_credit_scoring/notebooks/01_eda_scorecard.py
 
-# Secuencia completa case study 01:
-uv run marimo edit 01_credit_scoring/notebooks/01_eda.py
-uv run marimo edit 01_credit_scoring/notebooks/02_feature_engineering.py
-uv run marimo edit 01_credit_scoring/notebooks/03_model_and_validation.py
-```
+# Exportar reporte HTML (para LinkedIn / portafolio)
+uv run marimo export html 01_credit_scoring/notebooks/01_eda_scorecard.py \
+    -o 01_credit_scoring/reports/01_eda_scorecard.html
 
-## Comandos de purga (ya ejecutados)
-
-```bash
-# Purgar notebooks Jupyter del repo
+# Purgar cualquier .ipynb que haya entrado por error
 find . -name '*.ipynb' -not -path './.git/*' -delete
-find . -name '.ipynb_checkpoints' -type d -exec rm -rf {} +
-
-# Verificar que no quedan rastros
-git status --short | grep ipynb  # debe retornar vacío
+find . -name '.ipynb_checkpoints' -type d -exec rm -rf {} + 2>/dev/null || true
 ```
 
-## Principios DAG en Marimo
+---
 
-Cada celda en Marimo declara explícitamente sus dependencias a través de los parámetros de la función decorada con `@app.cell`. Esto significa:
-
-1. **No hay estado global oculto**: si una celda necesita `df`, lo recibe como argumento.
-2. **Reactividad automática**: modificar `DATA_PATH` en la celda 02 invalida automáticamente todas las celdas downstream.
-3. **Soberanía de datos**: los datos entran a las celdas como argumentos inmutables, la lógica es versionable.
-4. **Rutas relativas**: `Path(__file__).resolve().parent` ancla siempre al repositorio, nunca al SO.
+*Migrado en `v0.3.0` — Mayo 2026*

@@ -1,6 +1,6 @@
 [project]
 name = "credit-risk-lab"
-version = "0.2.0"
+version = "0.3.0"
 description = "Quantitative credit risk research: PD/LGD modeling, credit scoring, Basel III analytics"
 readme = "README.md"
 license = { text = "MIT" }
@@ -25,12 +25,9 @@ dependencies = [
     "matplotlib>=3.8.0",
     "seaborn>=0.13.0",
     "plotly>=5.20.0",
-    # Interactive notebooks (marimo, NOT jupyter)
-    "marimo>=0.7.0",
-    # Reporting
-    "nbconvert>=7.14.0",
-    "jinja2>=3.1.0",
-    "nbformat>=5.9.0",
+    "altair>=5.3.0",
+    # Interactive notebooks — Marimo ONLY (Jupyter permanently removed)
+    "marimo>=0.13.0",
     # Database
     "duckdb>=0.10.0",
     # Data sources
