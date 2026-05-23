@@ -5,6 +5,7 @@
 **Erick Condoy** · Economist (UNL) · Quant Researcher · Loja, Ecuador
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org)
+[![uv](https://img.shields.io/badge/uv-package%20manager-DE5FE9?style=flat&logo=astral&logoColor=white)](https://docs.astral.sh/uv/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4-F7931E?style=flat&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
 [![statsmodels](https://img.shields.io/badge/statsmodels-0.14-4B8BBE?style=flat)](https://www.statsmodels.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -31,15 +32,51 @@ The focus is on techniques directly applicable to banking operations in Latin Am
 
 ---
 
+## ⚙️ Setup (uv)
+
+This project uses **[uv](https://docs.astral.sh/uv/)** for environment and dependency management — consistent with the rest of the research infrastructure.
+
+```bash
+# 1. Clone
+git clone https://github.com/EryckFCS/credit-risk-lab.git
+cd credit-risk-lab
+
+# 2. Create venv + install all deps (uv resolves & locks automatically)
+uv sync
+
+# 3. Install dev extras (jupyter, pytest, ruff)
+uv sync --extra dev
+
+# 4. Activate the environment
+source .venv/bin/activate   # Linux/macOS (zsh/bash)
+
+# 5. Register Jupyter kernel
+uv run python -m ipykernel install --user --name credit-risk-lab
+```
+
+### Daily workflow
+```bash
+uv run python cli.py list                        # list case studies
+uv run python cli.py run --case 01               # execute notebooks
+uv run python cli.py report --case 01            # export HTML report
+uv run pytest                                    # run test suite
+```
+
+> **Adding a package:** `uv add <package>` — updates `pyproject.toml` and `uv.lock` atomically.
+
+---
+
 ## 🛠️ Tech Stack
 
 ```
 Language  : Python 3.11+
+Env mgmt  : uv (astral.sh)
 Core libs : pandas · numpy · scikit-learn · statsmodels · scipy
 Viz       : matplotlib · seaborn · plotly
 Reporting : nbconvert (HTML/PDF) · Jinja2
 DB        : DuckDB (local analytical queries)
-Env       : pip + venv | Docker-ready
+Testing   : pytest + pytest-cov
+Linting   : ruff
 ```
 
 ---
@@ -48,68 +85,33 @@ Env       : pip + venv | Docker-ready
 
 ```
 credit-risk-lab/
+├── pyproject.toml             # uv project definition + deps
+├── uv.lock                    # locked dependency graph (committed)
+├── .python-version            # 3.11 (uv pin)
 ├── README.md
-├── requirements.txt           # Reproducible environment
+├── cli.py                     # pipeline CLI (uv run python cli.py)
 ├── .gitignore
+├── LICENSE
 │
-├── utils/                     # Shared modules across all case studies
-│   ├── __init__.py
-│   ├── metrics.py             # KS, Gini, AUC, CAP curve, PSI
-│   ├── preprocessing.py       # WOE/IV, binning, missing-value handlers
-│   └── plotting.py            # CAP curve, ROC, score distribution
+├── utils/                     # shared modules
+│   ├── metrics.py             # KS, Gini, AUC, PSI, CAP
+│   ├── preprocessing.py       # WOE/IV binning
+│   └── plotting.py            # CAP, ROC, score distribution
+│
+├── tests/                     # pytest test suite
+│   ├── test_metrics.py
+│   └── test_preprocessing.py
 │
 ├── 01_credit_scoring/
-│   ├── README.md              # Case study description
-│   ├── data/                  # Raw data (not tracked by git)
-│   │   └── download.sh        # Script to fetch UCI dataset
-│   ├── notebooks/
-│   │   ├── 01_eda.ipynb
-│   │   ├── 02_feature_engineering.ipynb
-│   │   └── 03_model_and_validation.ipynb
-│   ├── reports/               # Exported HTML/PDF for sharing
-│   └── src/
-│       └── scorecard.py       # Production-ready scoring module
+│   ├── data/download.sh       # fetch UCI dataset
+│   ├── notebooks/             # 01_eda · 02_features · 03_model
+│   ├── reports/               # exported HTML reports
+│   └── src/scorecard.py
 │
 ├── 02_pd_lgd_estimation/
-│   ├── README.md
-│   ├── data/
-│   ├── notebooks/
-│   └── reports/
-│
 ├── 03_concentration_risk/
-│   ├── README.md
-│   ├── data/
-│   ├── notebooks/
-│   └── reports/
-│
 ├── 04_basel_capital_simulator/
-│   ├── README.md
-│   ├── data/
-│   ├── notebooks/
-│   └── reports/
-│
 └── 05_eda_sbs_ecuador/
-    ├── README.md
-    ├── data/
-    ├── notebooks/
-    └── reports/
-```
-
----
-
-## ⚙️ Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/EryckFCS/credit-risk-lab.git
-cd credit-risk-lab
-
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-
-# Install dependencies
-pip install -r requirements.txt
 ```
 
 ---
@@ -136,6 +138,16 @@ Every model in this lab is evaluated with the following industry-standard metric
 
 ---
 
+## 🧪 Testing
+
+```bash
+uv run pytest                  # full suite
+uv run pytest -v --tb=short    # verbose
+uv run pytest --cov=utils      # with coverage
+```
+
+---
+
 ## 📄 License
 
 MIT License — see [LICENSE](LICENSE) for details.
@@ -143,5 +155,5 @@ MIT License — see [LICENSE](LICENSE) for details.
 ---
 
 <p align="center">
-  <i>Built with rigorous methodology. Every model is validated before it's trusted.</i>
+  <i>Built with rigorous methodology. Every model is validated before it’s trusted.</i>
 </p>
