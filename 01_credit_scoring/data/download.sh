@@ -1,16 +1,42 @@
 #!/usr/bin/env bash
-# Download UCI Credit Default dataset
-# Run from the 01_credit_scoring/data/ directory
+# =============================================================================
+# Case Study 01 — Credit Scoring
+# Dataset: Default of Credit Card Clients (UCI ML Repo, id=350)
+# Source : https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients
+# License: CC BY 4.0  |  Yeh, I. (2009). DOI: 10.24432/C55S3H
+# Download method: ucimlrepo Python package (official API, no scraping)
+# =============================================================================
+set -euo pipefail
 
-set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OUTPUT_DIR="$SCRIPT_DIR"
 
-DATASET_URL="https://archive.ics.uci.edu/static/public/350/default+of+credit+card+clients.zip"
-OUTPUT_DIR="$(dirname "$0")"
+echo "[credit-risk-lab] Downloading UCI dataset 350 via ucimlrepo..."
 
-echo "[INFO] Downloading UCI Credit Default dataset..."
-curl -L "$DATASET_URL" -o "${OUTPUT_DIR}/uci_credit.zip"
+uv run python - <<'PYEOF'
+from pathlib import Path
+import pandas as pd
+from ucimlrepo import fetch_ucirepo
 
-echo "[INFO] Extracting..."
-unzip -o "${OUTPUT_DIR}/uci_credit.zip" -d "${OUTPUT_DIR}/"
+out = Path("01_credit_scoring/data")
+out.mkdir(parents=True, exist_ok=True)
 
-echo "[INFO] Done. Files available in ${OUTPUT_DIR}/"
+dst = out / "credit_card_default.parquet"
+if dst.exists():
+    print(f"[skip] {dst} already exists — delete to re-download.")
+else:
+    print("[fetch] Connecting to UCI ML Repository...")
+    ds = fetch_ucirepo(id=350)
+    X = ds.data.features
+    y = ds.data.targets
+    df = pd.concat([X, y], axis=1)
+    df.columns = [c.strip().upper() for c in df.columns]
+    # Rename target column standardised name
+    df.rename(columns={"DEFAULT.PAYMENT.NEXT.MONTH": "DEFAULT"}, inplace=True)
+    df.to_parquet(dst, index=False)
+    print(f"[ok] Saved {len(df):,} rows → {dst}")
+    print(f"     Columns: {list(df.columns)}")
+    print(f"     Default rate: {df['DEFAULT'].mean():.2%}")
+PYEOF
+
+echo "[done] Dataset ready at 01_credit_scoring/data/credit_card_default.parquet"
