@@ -1,65 +1,76 @@
-# Case Study 01 — Credit Scoring: Retail Portfolio
+# Case Study 01 — Credit Scoring
 
-## Objetivo
+> End-to-end credit scorecard following industry-standard methodology
 
-Construir un **modelo de credit scoring** sobre datos reales de tarjetas de crédito, siguiendo la metodología estándar de la industria bancaria: WOE/IV feature engineering, regresión logística, escalamiento PDO y validación con métricas regulatorias (KS, Gini, AUC, CAP, PSI).
+**Dataset:** UCI Default of Credit Card Clients · N = 30,000 · Taiwan 2005  
+**Status:** ✅ Complete
 
-## Dataset
+---
 
-| Campo | Detalle |
-|-------|---------|
-| **Nombre** | Default of Credit Card Clients |
-| **Fuente** | [UCI ML Repository — id 350](https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients) |
-| **Autores** | Yeh, I. (2009). DOI: [10.24432/C55S3H](https://doi.org/10.24432/C55S3H) |
-| **Licencia** | CC BY 4.0 |
-| **Observaciones** | 30,000 clientes de tarjeta de crédito en Taiwan |
-| **Período** | Abril–Septiembre 2005 |
-| **Target** | `DEFAULT` = incumplimiento de pago en octubre 2005 |
-| **Default rate** | ~22.1% |
-
-### Variables clave
+## Methodology
 
 ```
-LIMIT_BAL   : Monto de crédito aprobado (TWD)
-SEX, EDUCATION, MARRIAGE, AGE : Demografía
-PAY_0..PAY_6 : Historial de pagos (meses -1 a -6)
-BILL_AMT1..6 : Estado de cuenta mensual
-PAY_AMT1..6  : Monto pagado mensualmente
-DEFAULT     : 1 = incumplimiento (TARGET)
+Raw Data → EDA & Profiling → Feature Engineering (WoE/IV)
+       → Logistic Regression → PDO Scorecard Scaling
+       → Benchmarking (RF · XGBoost) → SHAP Interpretability
+       → Regulatory Decision Matrix → HTML Report
 ```
 
-## Setup
+## Notebooks
+
+| # | Notebook | Content |
+|---|----------|---------|
+| 01 | `01_eda_and_profiling.ipynb` | Distribution analysis, missing values, default rate by segment |
+| 02 | `02_feature_engineering_woe.ipynb` | WoE binning, IV table, 7 engineered features, train/test split |
+| 03 | `03_modeling_logistic_regression.ipynb` | LR pipeline, KS/Gini/AUC/CAP/PSI, calibration, scorecard scaling |
+| 04 | `04_model_comparison.ipynb` | LR vs RF vs XGBoost · SHAP global/beeswarm/waterfall · regulatory matrix |
+| 05 | `05_final_report_export.ipynb` | Self-contained HTML report + LinkedIn post generator |
+
+## Results (Champion — LR Scorecard, test set)
+
+| Metric | Value | Industrial Threshold | Status |
+|--------|-------|---------------------|--------|
+| KS | _run NB03_ | ≥ 0.30 | — |
+| Gini | _run NB03_ | ≥ 0.40 | — |
+| AUC | _run NB03_ | ≥ 0.70 | — |
+| PSI | _run NB07_ | < 0.10 | — |
+| Brier | _run NB03_ | < 0.15 | — |
+
+> Run notebooks 01–05 in sequence to populate results.
+
+## Scorecard Parameters
+
+```
+Base Score = 600  ·  Base Odds = 50:1  ·  PDO = 20
+Factor = PDO / ln(2) = 28.85
+Offset = Base Score - Factor × ln(Base Odds) = 487.12
+Score = Offset + Factor × ln(Odds)  →  Higher score = lower risk
+```
+
+## Key Features (WoE ranked by IV)
+
+- `PAY_0` — most recent payment status (strongest predictor)
+- `utilization` — avg_bill / limit_bal (engineered)
+- `n_delinquent_months` — count of months with delay ≥ 1 (engineered)
+- `max_delay` — maximum delay severity in 6 months (engineered)
+- `pay_ratio` — avg_payment / avg_bill (engineered)
+
+## How to Run
 
 ```bash
-# Desde la raíz del repo
-bash 01_credit_scoring/data/download.sh   # descarga vía ucimlrepo API
+# 1. Install dependencies
+pip install -r ../../requirements.txt
+
+# 2. Run notebooks in order
+jupyter lab  # open and run 01 → 05 sequentially
+
+# 3. View report
+open reports/credit_scoring_report.html
 ```
 
-Requiere `ucimlrepo` (incluido en `pyproject.toml`). No se sube data al repo (ver `.gitignore`).
-
-## Metodología
-
-```
-1. EDA              → distribuciones, default rate por segmento, correlaciones
-2. Feature Eng.     → WOE binning + IV screen (umbral IV > 0.02)
-3. Model Dev.       → Logistic Regression (class_weight='balanced')
-4. Scorecard        → escalamiento PDO: base=600, PDO=20, Score = Offset + Factor × log-odds
-5. Validation       → KS, Gini, AUC, CAP Ratio, PSI (train vs test)
-6. Report           → HTML exportado con nbconvert → LinkedIn post
-```
-
-## Targets de Validación
-
-| Métrica | Umbral mínimo | Referencia |
-|---------|--------------|------------|
-| KS | > 0.30 | Basel II IRB guidelines |
-| Gini | > 0.40 | Siddiqi (2006) |
-| AUC | > 0.70 | Thomas et al. (2002) |
-| PSI | < 0.10 | Industry standard |
-| CAP Ratio | > 0.60 | OCC Model Risk Guidance |
-
-## Referencias
+## References
 
 - Siddiqi, N. (2006). *Credit Risk Scorecards*. Wiley.
 - Thomas, L., Edelman, D., Crook, J. (2002). *Credit Scoring and Its Applications*. SIAM.
-- Basel Committee on Banking Supervision (2006). *IRB Approach for Credit Risk*.
+- Yeh, I.C. & Lien, C. (2009). *The comparisons of data mining techniques*. Expert Systems with Applications.
+- Basel Committee (2006). *International Convergence of Capital Measurement* (Basel II).
