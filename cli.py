@@ -2,273 +2,292 @@
 """
 credit-risk-lab CLI
 ====================
-Command-line interface for the Credit Risk Lab research portfolio.
+Command-line interface to run case study pipelines, validate models,
+and generate reports.
 
 Usage:
     python cli.py --help
-    python cli.py status
-    python cli.py run --case 01 --notebook eda
+    python cli.py run --case 01
+    python cli.py validate --case 01 --data path/to/data.csv
     python cli.py report --case 01
-    python cli.py metrics --help
+    python cli.py iv --data path/to/data.csv --target default
 """
 
 import argparse
-import subprocess
 import sys
-import os
+import subprocess
 from pathlib import Path
 
-# ── Paths (agnostic — no absolute OS paths) ───────────────────────────────────
-ROOT = Path(__file__).parent
-
-CASE_MAP = {
-    "01": {"dir": "01_credit_scoring",         "name": "Credit Scoring"},
-    "02": {"dir": "02_pd_lgd_estimation",       "name": "PD & LGD Estimation"},
-    "03": {"dir": "03_concentration_risk",       "name": "Concentration Risk"},
-    "04": {"dir": "04_basel_capital_simulator",  "name": "Basel III Simulator"},
-    "05": {"dir": "05_eda_sbs_ecuador",          "name": "EDA SBS Ecuador"},
-}
-
-NOTEBOOK_MAP = {
-    "eda":   "01_eda.ipynb",
-    "fe":    "02_feature_engineering.ipynb",
-    "model": "03_model_and_validation.ipynb",
-}
-
-# ANSI colors
+# ── ANSI colors ────────────────────────────────────────────────────────────────
 GREEN  = "\033[92m"
-YELLOW = "\033[93m"
+TEAL   = "\033[36m"
 RED    = "\033[91m"
-CYAN   = "\033[96m"
+YELLOW = "\033[93m"
 BOLD   = "\033[1m"
 RESET  = "\033[0m"
 
+CASE_MAP = {
+    "01": "01_credit_scoring",
+    "02": "02_pd_lgd_estimation",
+    "03": "03_concentration_risk",
+    "04": "04_basel_capital_simulator",
+    "05": "05_eda_sbs_ecuador",
+}
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
-def _header():
-    print(f"""
-{BOLD}{CYAN}╔══════════════════════════════════════════╗
-║       Credit Risk Lab  ·  CLI v1.0       ║
-║   Erick Condoy · Economist (UNL)         ║
-╚══════════════════════════════════════════╝{RESET}
-""")
+BANNER = f"""{TEAL}{BOLD}
+  ╔══════════════════════════════════════════╗
+  ║       Credit Risk Lab  ·  CLI v1.0       ║
+  ║   Erick Condoy  ·  github/EryckFCS      ║
+  ╚══════════════════════════════════════════╝
+{RESET}"""
 
 
-def _case_exists(case_id: str) -> Path:
-    if case_id not in CASE_MAP:
-        print(f"{RED}[ERROR]{RESET} Case '{case_id}' not found. Valid cases: {list(CASE_MAP.keys())}")
+def _print_banner() -> None:
+    print(BANNER)
+
+
+def _check_case(case: str) -> Path:
+    """Resolve case directory and assert it exists."""
+    if case not in CASE_MAP:
+        print(f"{RED}[ERROR] Unknown case '{case}'. Valid: {list(CASE_MAP.keys())}{RESET}")
         sys.exit(1)
-    case_dir = ROOT / CASE_MAP[case_id]["dir"]
+    case_dir = Path(CASE_MAP[case])
     if not case_dir.exists():
-        print(f"{RED}[ERROR]{RESET} Directory not found: {case_dir}")
+        print(f"{RED}[ERROR] Directory not found: {case_dir}{RESET}")
         sys.exit(1)
     return case_dir
 
 
-def _check_command(cmd: str) -> bool:
-    """Check if a shell command is available."""
-    return subprocess.run(["which", cmd], capture_output=True).returncode == 0
-
-
-# ── Subcommands ────────────────────────────────────────────────────────────────
-def cmd_status(args):
-    """Show the status of all case studies."""
-    _header()
-    print(f"{BOLD}Case Studies Status:{RESET}\n")
-    print(f"  {'#':<4} {'Name':<35} {'Notebooks':<12} {'Reports'}")
-    print(f"  {'─'*4} {'─'*35} {'─'*12} {'─'*15}")
-
-    STATUS_ICONS = {True: f"{GREEN}✓{RESET}", False: f"{YELLOW}○{RESET}"}
-
-    for cid, meta in CASE_MAP.items():
-        case_dir = ROOT / meta["dir"]
-        nb_dir = case_dir / "notebooks"
-        rp_dir = case_dir / "reports"
-
-        notebooks = list(nb_dir.glob("*.ipynb")) if nb_dir.exists() else []
-        reports   = list(rp_dir.glob("*.html")) + list(rp_dir.glob("*.pdf")) if rp_dir.exists() else []
-
-        nb_icon = STATUS_ICONS[len(notebooks) > 0]
-        rp_icon = STATUS_ICONS[len(reports) > 0]
-
-        print(f"  {cid:<4} {meta['name']:<35} {nb_icon} {len(notebooks)} notebooks   {rp_icon} {len(reports)} reports")
-
+# ── Subcommand: list ────────────────────────────────────────────────────────────
+def cmd_list(_args: argparse.Namespace) -> None:
+    _print_banner()
+    print(f"{BOLD}Available Case Studies:{RESET}\n")
+    statuses = {
+        "01": ("Credit Scoring — Retail Portfolio",       "🔄 In Progress"),
+        "02": ("PD & LGD Estimation — SME Lending",        "📋 Planned"),
+        "03": ("Concentration Risk — Sector Analysis",      "📋 Planned"),
+        "04": ("Basel III Capital Requirement Simulator",   "📋 Planned"),
+        "05": ("EDA — SBS Ecuador Credit Portfolio",        "📋 Planned"),
+    }
+    for key, (name, status) in statuses.items():
+        print(f"  {TEAL}{key}{RESET}  {name:<48} {status}")
     print()
 
 
-def cmd_run(args):
-    """Execute a notebook for a given case study."""
-    _header()
+# ── Subcommand: run ─────────────────────────────────────────────────────────────
+def cmd_run(args: argparse.Namespace) -> None:
+    _print_banner()
+    case_dir = _check_case(args.case)
+    nb_dir = case_dir / "notebooks"
+    notebooks = sorted(nb_dir.glob("*.ipynb"))
 
-    if not _check_command("jupyter"):
-        print(f"{RED}[ERROR]{RESET} jupyter not found. Install with: pip install jupyterlab")
-        sys.exit(1)
+    if not notebooks:
+        print(f"{YELLOW}[WARN] No notebooks found in {nb_dir}{RESET}")
+        sys.exit(0)
 
-    case_dir = _case_exists(args.case)
+    print(f"{BOLD}Running case {args.case} — {CASE_MAP[args.case]}{RESET}")
+    print(f"Found {len(notebooks)} notebook(s):\n")
+    for nb in notebooks:
+        print(f"  → {nb.name}")
+    print()
 
-    if args.notebook not in NOTEBOOK_MAP:
-        print(f"{RED}[ERROR]{RESET} Notebook '{args.notebook}' not found. Valid: {list(NOTEBOOK_MAP.keys())}")
-        sys.exit(1)
+    for nb in notebooks:
+        if args.notebook and nb.name not in args.notebook:
+            continue
+        print(f"{TEAL}[RUN]{RESET} {nb.name} ...", end=" ", flush=True)
+        result = subprocess.run(
+            [sys.executable, "-m", "nbconvert",
+             "--to", "notebook",
+             "--execute",
+             "--inplace",
+             "--ExecutePreprocessor.timeout=600",
+             str(nb)],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            print(f"{GREEN}✓ DONE{RESET}")
+        else:
+            print(f"{RED}✗ FAILED{RESET}")
+            print(result.stderr[-800:] if result.stderr else "No stderr")
+            if not args.continue_on_error:
+                sys.exit(1)
 
-    nb_name = NOTEBOOK_MAP[args.notebook]
-    nb_path = case_dir / "notebooks" / nb_name
-
-    if not nb_path.exists():
-        print(f"{YELLOW}[WARN]{RESET}  Notebook not found: {nb_path}")
-        print(f"        Create the notebook first or check the status with: python cli.py status")
-        sys.exit(1)
-
-    print(f"{CYAN}[RUN]{RESET}  Executing: {nb_path.relative_to(ROOT)}")
-    print(f"       Case: {CASE_MAP[args.case]['name']}\n")
-
-    cmd = [
-        "jupyter", "nbconvert", "--to", "notebook",
-        "--execute", "--inplace",
-        "--ExecutePreprocessor.timeout=600",
-        str(nb_path),
-    ]
-    result = subprocess.run(cmd)
-
-    if result.returncode == 0:
-        print(f"\n{GREEN}[OK]{RESET}   Notebook executed successfully.")
-        print(f"       Run 'python cli.py report --case {args.case}' to export HTML.")
-    else:
-        print(f"\n{RED}[FAIL]{RESET} Execution failed. Check the notebook for errors.")
-        sys.exit(1)
+    print(f"\n{GREEN}All notebooks executed.{RESET}")
 
 
-def cmd_report(args):
-    """Export a case study notebook to HTML report."""
-    _header()
-
-    if not _check_command("jupyter"):
-        print(f"{RED}[ERROR]{RESET} jupyter not found.")
-        sys.exit(1)
-
-    case_dir = _case_exists(args.case)
-    nb_dir   = case_dir / "notebooks"
-    rp_dir   = case_dir / "reports"
-    rp_dir.mkdir(exist_ok=True)
+# ── Subcommand: report ──────────────────────────────────────────────────────────
+def cmd_report(args: argparse.Namespace) -> None:
+    _print_banner()
+    case_dir = _check_case(args.case)
+    nb_dir = case_dir / "notebooks"
+    report_dir = case_dir / "reports"
+    report_dir.mkdir(exist_ok=True)
 
     notebooks = sorted(nb_dir.glob("*.ipynb"))
     if not notebooks:
-        print(f"{YELLOW}[WARN]{RESET}  No notebooks found in {nb_dir}")
+        print(f"{YELLOW}[WARN] No notebooks found.{RESET}")
+        sys.exit(0)
+
+    fmt = args.format  # html or pdf
+    print(f"{BOLD}Generating {fmt.upper()} reports for case {args.case}...{RESET}\n")
+
+    for nb in notebooks:
+        out_name = nb.stem + f".{fmt}"
+        out_path = report_dir / out_name
+        print(f"{TEAL}[EXPORT]{RESET} {nb.name} → {out_path.name} ...", end=" ", flush=True)
+        result = subprocess.run(
+            [sys.executable, "-m", "nbconvert",
+             "--to", fmt,
+             "--output-dir", str(report_dir),
+             str(nb)],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            print(f"{GREEN}✓{RESET}")
+        else:
+            print(f"{RED}✗ FAILED{RESET}")
+            print(result.stderr[-400:])
+
+    print(f"\n{GREEN}Reports saved to: {report_dir}{RESET}")
+
+
+# ── Subcommand: iv ──────────────────────────────────────────────────────────────
+def cmd_iv(args: argparse.Namespace) -> None:
+    """Quick IV screen on any CSV/Parquet file."""
+    _print_banner()
+
+    try:
+        import pandas as pd
+        from utils.preprocessing import iv_summary
+    except ImportError as e:
+        print(f"{RED}[ERROR] Missing dependency: {e}{RESET}")
         sys.exit(1)
 
-    for nb_path in notebooks:
-        out_name = nb_path.stem + ".html"
-        out_path = rp_dir / out_name
-        print(f"{CYAN}[EXPORT]{RESET} {nb_path.name} → reports/{out_name}")
-
-        cmd = [
-            "jupyter", "nbconvert", "--to", "html",
-            "--no-input",
-            f"--output={str(out_path)}",
-            str(nb_path),
-        ]
-        subprocess.run(cmd, check=True)
-
-    print(f"\n{GREEN}[OK]{RESET}   Reports saved to: {rp_dir.relative_to(ROOT)}")
-    print(f"       Share the HTML files as LinkedIn articles or GitHub Pages.")
-
-
-def cmd_metrics(args):
-    """Run validation metrics on a saved predictions CSV."""
-    _header()
-
-    preds_path = Path(args.predictions)
-    if not preds_path.exists():
-        print(f"{RED}[ERROR]{RESET} File not found: {preds_path}")
+    fpath = Path(args.data)
+    if not fpath.exists():
+        print(f"{RED}[ERROR] File not found: {fpath}{RESET}")
         sys.exit(1)
+
+    print(f"Loading {fpath.name} ...", end=" ", flush=True)
+    if fpath.suffix == ".parquet":
+        df = pd.read_parquet(fpath)
+    elif fpath.suffix == ".csv":
+        df = pd.read_csv(fpath)
+    else:
+        print(f"{RED}Unsupported format. Use .csv or .parquet{RESET}")
+        sys.exit(1)
+    print(f"{GREEN}✓{RESET} ({df.shape[0]:,} rows)\n")
+
+    result = iv_summary(df, target=args.target)
+    print(f"{BOLD}Information Value Report — target: '{args.target}'{RESET}\n")
+    print(f"{'Feature':<30} {'IV':>8}  {'Strength'}")
+    print("-" * 52)
+    for _, row in result.iterrows():
+        color = GREEN if row.strength == 'Strong' else (TEAL if row.strength == 'Medium' else YELLOW)
+        print(f"{row.feature:<30} {row.iv:>8.4f}  {color}{row.strength}{RESET}")
+    print()
+
+
+# ── Subcommand: validate ────────────────────────────────────────────────────────
+def cmd_validate(args: argparse.Namespace) -> None:
+    """Run validation metrics on a scored dataset (requires: score, target columns)."""
+    _print_banner()
 
     try:
         import pandas as pd
         import numpy as np
-        sys.path.insert(0, str(ROOT))
         from utils.metrics import ks_statistic, gini_coefficient, psi, cap_ratio
-        from sklearn.metrics import roc_auc_score
     except ImportError as e:
-        print(f"{RED}[ERROR]{RESET} Missing dependency: {e}")
+        print(f"{RED}[ERROR] {e}{RESET}")
         sys.exit(1)
 
-    df = pd.read_csv(preds_path)
+    fpath = Path(args.data)
+    df = pd.read_csv(fpath) if fpath.suffix == ".csv" else pd.read_parquet(fpath)
 
-    required = {args.target_col, args.score_col}
-    missing  = required - set(df.columns)
-    if missing:
-        print(f"{RED}[ERROR]{RESET} Columns not found: {missing}. Available: {df.columns.tolist()}")
-        sys.exit(1)
-
-    y_true  = df[args.target_col].values
+    y_true = df[args.target].values
     y_score = df[args.score_col].values
 
-    ks   = ks_statistic(y_true, y_score)
-    gini = gini_coefficient(y_true, y_score)
-    auc  = roc_auc_score(y_true, y_score)
-    cap  = cap_ratio(y_true, y_score)
+    ks_val   = ks_statistic(y_true, y_score)
+    gini_val = gini_coefficient(y_true, y_score)
+    auc_val  = gini_val / 2 + 0.5
+    cap_val  = cap_ratio(y_true, y_score)
 
-    def _badge(val, threshold):
-        return f"{GREEN}✓ PASS{RESET}" if val >= threshold else f"{RED}✗ REVIEW{RESET}"
-
-    print(f"{BOLD}Validation Metrics{RESET}\n")
-    print(f"  {'Metric':<20} {'Value':>8}   {'Threshold':>10}   Status")
-    print(f"  {'─'*20} {'─'*8}   {'─'*10}   {'─'*12}")
-    print(f"  {'KS Statistic':<20} {ks:>8.4f}   {'>0.30':>10}   {_badge(ks, 0.30)}")
-    print(f"  {'Gini Coefficient':<20} {gini:>8.4f}   {'>0.40':>10}   {_badge(gini, 0.40)}")
-    print(f"  {'AUC-ROC':<20} {auc:>8.4f}   {'>0.70':>10}   {_badge(auc, 0.70)}")
-    print(f"  {'CAP Ratio':<20} {cap:>8.4f}   {'>0.60':>10}   {_badge(cap, 0.60)}")
+    print(f"{BOLD}=== Validation Report ==={RESET}\n")
+    rows = [
+        ("KS Statistic",     ks_val,   0.30, ks_val  > 0.30),
+        ("Gini Coefficient", gini_val, 0.40, gini_val > 0.40),
+        ("AUC-ROC",          auc_val,  0.70, auc_val  > 0.70),
+        ("CAP Ratio",        cap_val,  0.60, cap_val  > 0.60),
+    ]
+    print(f"{'Metric':<22} {'Value':>8}  {'Threshold':>12}  Status")
+    print("-" * 54)
+    for metric, val, thr, passed in rows:
+        status = f"{GREEN}✓ PASS{RESET}" if passed else f"{RED}✗ FAIL{RESET}"
+        print(f"{metric:<22} {val:>8.4f}  {'> '+str(thr):>12}  {status}")
     print()
 
 
-# ── Argument Parser ────────────────────────────────────────────────────────────
-def build_parser() -> argparse.ArgumentParser:
+# ── Main ────────────────────────────────────────────────────────────────────────
+def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="cli.py",
-        description="Credit Risk Lab — Research Portfolio CLI",
+        prog="python cli.py",
+        description="Credit Risk Lab — Pipeline CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python cli.py status
-  python cli.py run --case 01 --notebook eda
-  python cli.py report --case 01
-  python cli.py metrics --predictions preds.csv --target-col default --score-col p_default
-""",
+  python cli.py list
+  python cli.py run --case 01
+  python cli.py run --case 01 --notebook 01_eda.ipynb
+  python cli.py report --case 01 --format html
+  python cli.py iv --data 01_credit_scoring/data/processed_woe.parquet --target default
+  python cli.py validate --data scored.csv --target default --score-col p_default
+    """
     )
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="command")
 
-    # status
-    sub.add_parser("status", help="Show case study completion status")
+    # list
+    sub.add_parser("list", help="List all case studies and their status")
 
     # run
-    p_run = sub.add_parser("run", help="Execute a notebook")
-    p_run.add_argument("--case",     required=True, choices=CASE_MAP.keys(), help="Case study ID (01–05)")
-    p_run.add_argument("--notebook", required=True, choices=NOTEBOOK_MAP.keys(),
-                       help="Notebook stage: eda | fe | model")
+    p_run = sub.add_parser("run", help="Execute notebooks for a case study")
+    p_run.add_argument("--case", required=True, choices=CASE_MAP.keys())
+    p_run.add_argument("--notebook", nargs="+", help="Run only specific notebook(s)")
+    p_run.add_argument("--continue-on-error", action="store_true",
+                       help="Continue if a notebook fails")
 
     # report
-    p_rep = sub.add_parser("report", help="Export notebooks to HTML reports")
-    p_rep.add_argument("--case", required=True, choices=CASE_MAP.keys(), help="Case study ID (01–05)")
+    p_rep = sub.add_parser("report", help="Export notebooks to HTML or PDF")
+    p_rep.add_argument("--case", required=True, choices=CASE_MAP.keys())
+    p_rep.add_argument("--format", choices=["html", "pdf"], default="html")
 
-    # metrics
-    p_met = sub.add_parser("metrics", help="Compute validation metrics from predictions CSV")
-    p_met.add_argument("--predictions",  required=True, help="Path to CSV with predictions")
-    p_met.add_argument("--target-col",   default="default", help="Column name for true labels (default: 'default')")
-    p_met.add_argument("--score-col",    default="p_default", help="Column name for predicted score (default: 'p_default')")
+    # iv
+    p_iv = sub.add_parser("iv", help="Quick Information Value screen on a dataset")
+    p_iv.add_argument("--data", required=True, help="Path to CSV or Parquet file")
+    p_iv.add_argument("--target", required=True, help="Target column name")
 
-    return parser
+    # validate
+    p_val = sub.add_parser("validate", help="Run KS/Gini/AUC/CAP validation metrics")
+    p_val.add_argument("--data", required=True, help="Path to scored dataset")
+    p_val.add_argument("--target", required=True, help="Target column name (0/1)")
+    p_val.add_argument("--score-col", default="p_default",
+                       help="Column with predicted probability (default: p_default)")
 
-
-def main():
-    parser = build_parser()
     args = parser.parse_args()
 
-    dispatch = {
-        "status":  cmd_status,
-        "run":     cmd_run,
-        "report":  cmd_report,
-        "metrics": cmd_metrics,
+    handlers = {
+        "list":     cmd_list,
+        "run":      cmd_run,
+        "report":   cmd_report,
+        "iv":       cmd_iv,
+        "validate": cmd_validate,
     }
-    dispatch[args.command](args)
+
+    if args.command not in handlers:
+        _print_banner()
+        parser.print_help()
+        sys.exit(0)
+
+    handlers[args.command](args)
 
 
 if __name__ == "__main__":
