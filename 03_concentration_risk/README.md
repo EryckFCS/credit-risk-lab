@@ -1,42 +1,83 @@
-# Case Study 03 — Concentration Risk: Sistema Bancario Ecuador
+# Case Study 03 — Riesgo de Concentración (SBS Ecuador)
 
 ## Objetivo
 
-Medir y analizar el **riesgo de concentración** del sistema bancario ecuatoriano usando el **Índice Herfindahl-Hirschman (HHI)**, el ratio CR5 (concentración de los 5 mayores bancos) y el indicador del Banco Mundial de activos de los 3 mayores bancos sobre activos totales. Se compara con el panel LATAM (Colombia, Perú, Chile, México, Brasil).
+Medir y estressar el **riesgo de concentración crediticia** del sistema financiero ecuatoriano
+usando métricas de supervisión bancaria internacional: HHI, CR5, Índice de Herfindahl
+normalizado y el framework de capital adicional por concentración del BCBS.
 
-## Datasets
+## Hipótesis de investigación
 
-| Dataset | Fuente | Variables | Descarga |
-|---------|--------|-----------|----------|
-| **Top-3 bank assets (% total)** | [Banco Mundial FB.BNK.CAPA.ZS](https://datos.bancomundial.org/indicador/FB.BNK.CAPA.ZS) | Concentración bancaria Ecuador 1996-2023 | API automática |
-| **Comparación LATAM** | [Banco Mundial — panel EC,CO,PE,CL,MX,BR](https://datos.bancomundial.org/indicador/FB.BNK.CAPA.ZS) | Benchmarking regional | API automática |
-| **Ranking empresas 2024** | [SuperCías Ecuador](https://appscvsmovil.supercias.gob.ec/ranking/reporte.html) | Activos/patrimonio por sector CIIU | Manual CSV |
-| **Boletín financiero SBS** | [SBS Portal Estadístico](https://www.superbancos.gob.ec/estadisticas/portalestudios/) | Cartera por entidad | Manual |
+> Los bancos privados ecuatorianos con alta concentración sectorial (HHI > 1800) exhiben
+> mayor volatilidad de morosidad bajo escenarios de estrés que carteras diversificadas,
+> consistente con las guías de concentración del Comité de Basilea (BCBS 2006).
 
-## Setup
+## Dataset
 
-```bash
-bash 03_concentration_risk/data/download.sh
+| Fuente | Variable | Frecuencia | Período |
+|--------|----------|------------|---------|
+| SBS — Volumen de crédito | Cartera por sector económico (CIIU) | Mensual | 2018–2024 |
+| SBS — Boletines mensuales | Cartera bruta por institución y segmento | Mensual | 2018–2024 |
+| BCE — Cuentas Nacionales | Participación sectorial en PIB | Anual | 2018–2024 |
+| Sintético calibrado | Distribución sectorial proxy SBS | Mensual | 2018–2024 |
+
+**Sectores CIIU modelados (Top 8 por participación cartera SBS):**
+- Comercio al por mayor y menor
+- Agricultura, ganadería, silvicultura
+- Industria manufacturera
+- Construcción
+- Transporte y logística
+- Actividades financieras
+- Servicios varios
+- Consumo personas naturales
+
+## Pipeline
+
+```
+01_data_sectors.py    → cartera por sector × institución → sector_panel.parquet
+02_hhi_metrics.py     → HHI, CR5, HHI norm, índice Berry → concentration_metrics.parquet
+03_stress_testing.py  → escenarios Basel, capital add-on, dashboard supervisorio
 ```
 
 ## Metodología
 
-```
-1. HHI sectorial      → Σ (participación_i)² por segmento de crédito
-2. CR5 bancario       → suma de cuotas de los 5 mayores bancos
-3. Serie temporal     → evolución concentración Ecuador 2000-2023
-4. Benchmarking LATAM → comparación regional con panel Banco Mundial
-5. Stress test        → impacto de quiebra del banco más grande sobre el sistema
-6. Interpretación     → contexto regulatorio SBS / resolución de crisis 1999
-```
+### Índice de Herfindahl-Hirschman (HHI)
 
-## Relevancia Ecuador
+\[
+HHI = \sum_{i=1}^{N} s_i^2 \quad \text{donde } s_i = \frac{\text{cartera}_i}{\text{cartera total}}
+\]
 
-Ecuador vivió una crisis bancaria sistémica en **1999** con el congelamiento de depósitos. La concentración bancaria actual (los 3 mayores bancos concentran ~60% de activos) es un factor de riesgo sistémico monitoreado por la SBS. Este caso contextualiza esos datos con metodología cuantitativa.
+Interpretación regulatoria:
+- HHI < 1000: mercado competitivo / cartera diversificada
+- 1000 ≤ HHI < 1800: concentración moderada
+- HHI ≥ 1800: concentración alta — capital add-on Basel
+
+### CR5 (Concentration Ratio Top-5)
+
+\[
+CR5 = \sum_{i=1}^{5} s_i \quad \text{(top 5 sectores por participación)}
+\]
+
+### Stress Testing — 3 Escenarios Basel
+
+| Escenario | Shock morosidad | PIB | Desempleo | Descripción |
+|-----------|----------------|-----|-----------|-------------|
+| Base | +0% | +2.0% | 4.8% | Condiciones actuales |
+| Adverse | +150bps | -1.5% | +2.0pp | Recesión moderada |
+| Severely Adverse | +400bps | -4.0% | +5.0pp | Crisis sistémica (COVID-like) |
+
+### Capital Add-on por Concentración (BCBS 2006 §773)
+
+\[
+\Delta K_{conc} = K_{base} \times \left(\frac{HHI}{HHI_{ref}} - 1\right) \times \phi
+\]
+
+donde φ es el factor de ajuste sectorial (0.10–0.25 según el segmento).
 
 ## Referencias
 
-- Rhoades, S.A. (1993). *The Herfindahl-Hirschman Index*. Federal Reserve Bulletin.
-- Basel Committee (2019). *Supervisory Framework for Measuring and Controlling Large Exposures*.
-- SBS Ecuador (2024). [Portal Estadístico](https://www.superbancos.gob.ec/estadisticas/portalestudios/)
-- Banco Mundial. [Indicador FB.BNK.CAPA.ZS](https://datos.bancomundial.org/indicador/FB.BNK.CAPA.ZS)
+- BCBS (2006). *International Convergence of Capital Measurement and Capital Standards* (Basel II). BIS.
+- BCBS (2017). *Basel III: Finalising post-crisis reforms*. BIS.
+- Düllmann, K. & Masschelein, N. (2007). *A Tractable Model to Measure Sector Concentration Risk in Credit Portfolios*. Journal of Financial Services Research.
+- Gordy, M. (2003). *A Risk-Factor Model Foundation for Ratings-Based Bank Capital Rules*. Journal of Financial Intermediation.
+- SBS Ecuador. *Volumen de Crédito*. https://www.superbancos.gob.ec/estadisticas/portalestudios/volumen-de-credito/
