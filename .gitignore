@@ -1,49 +1,70 @@
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
+*.pyo
 .Python
-.venv/
-venv/
-env/
-*.egg-info/
-dist/
 build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
 
-# Jupyter
+# ── uv ────────────────────────────────────────────────────────────────────
+.venv/
+.uv/
+
+# ── JUPYTER — PERMANENTLY BLOCKED (migrated to marimo) ─────────────────────
+# Jupyter notebooks are OBSOLETE in this repo.
+# All interactive analysis lives in marimo .py files.
+# Any .ipynb committed here is an error.
+*.ipynb
 .ipynb_checkpoints/
-*.ipynb_checkpoints
+**/.ipynb_checkpoints/
+*.jupyter/
+.jupyter/
+jupyter_notebook_config.py
 
-# Data (never commit raw data)
+# ── Marimo ────────────────────────────────────────────────────────────────────
+# Marimo cache (auto-generated, not source code)
+.marimo/
+__marimo__/
+
+# ── Data (never commit raw data) ────────────────────────────────────────────
 */data/*.csv
 */data/*.xlsx
+*/data/*.xls
 */data/*.parquet
 */data/*.json
-!*/data/.gitkeep
+*/data/*.zip
 !*/data/download.sh
+!*/data/.gitkeep
 
-# Reports (large HTML/PDF exports)
+# ── Reports (generated artifacts, not source) ───────────────────────────
 */reports/*.html
 */reports/*.pdf
+*/reports/*.png
 !*/reports/.gitkeep
 
-# Environment
+# ── Models (serialized, not source) ───────────────────────────────────
+*.pkl
+*.joblib
+*.h5
+*.onnx
+models/
+*/models/
+
+# ── Environment ───────────────────────────────────────────────────────────────
 .env
 .env.local
 *.env
 
-# IDE
+# ── OS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# ── IDE ─────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.iml
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Models (binary artifacts, store in DVC/MLflow)
-*.pkl
-*.joblib
-*.h5
-*.pt
