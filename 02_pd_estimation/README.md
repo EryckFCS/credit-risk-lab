@@ -1,81 +1,119 @@
-# Case Study 02 — PD Estimation: Macro Panel Data (SBS Ecuador)
+# Case Study 02 — PD Estimation (SBS Ecuador)
 
-## Objetivo
+> Probability of Default estimation with supervisory banking data from Ecuador
 
-Estimar la **Probabilidad de Default (PD)** a nivel de segmento de cartera usando datos
-macro-financieros públicos de la Superintendencia de Bancos del Ecuador (SBS) y el
-Banco Central del Ecuador (BCE), modelados como un **panel de datos longitudinal**.
+**Scope:** Ecuadorian banking system · supervisory / public aggregate data  
+**Status:** 🚧 In Progress
 
-## Hipótesis de investigación
+---
 
-> Los ciclos macroeconómicos (tasa activa, desempleo, crecimiento del PIB) y
-> variables de composición de cartera (concentración sectorial, plazo promedio) son
-> determinantes estadísticamente significativos de la morosidad sistémica en Ecuador.
+## Objective
 
-## Dataset
+Estimate **Probability of Default (PD)** using Ecuadorian supervisory data, moving from a generic retail scorecard dataset to a **local macro-credit risk framework**. The point of this case study is not only predictive power, but **contextual relevance**: prudential regulation, macro sensitivity, concentration risk, and supervisory interpretability.
 
-| Fuente | Variable | Frecuencia | Período |
-|--------|----------|------------|--------|
-| SBS — Boletines mensuales | Índice de morosidad por tipo de crédito | Mensual | 2015–2024 |
-| SBS — Volumen de crédito | Cartera bruta, cartera vencida, cartera en riesgo | Mensual | 2015–2024 |
-| BCE — Estadísticas | Tasa activa referencial, Tasa pasiva, Inflación | Mensual | 2015–2024 |
-| BCE — Cuentas Nacionales | Crecimiento PIB real (interpolado mensual) | Trimestral→Mensual | 2015–2024 |
-| INEC | Tasa de desempleo nacional | Trimestral→Mensual | 2015–2024 |
+## Strategic Rationale
 
-**Segmentos SBS modelados:**
-- Crédito Comercial Ordinario
-- Crédito de Consumo Ordinario
-- Crédito Inmobiliario
-- Microcrédito
+This case study is the real differentiator of the portfolio.
 
-## Pipeline
+Most junior credit-risk portfolios stop at the UCI dataset. This one advances toward a **country-relevant framework** using Ecuadorian public financial data, which is more aligned with:
 
-```
-01_data_ingestion.py   → descarga/parsea SBS+BCE → panel_raw.parquet
-02_feature_panel.py    → lags, diferencias, Hodrick-Prescott, dummies → panel_features.parquet
-03_panel_logit.py      → Logit pooled + FE + RE, Hausman test, IRF → outputs/
-```
+- local banks' internship and analyst roles,
+- supervisory-style reporting,
+- macro-financial credit deterioration analysis,
+- Basel / IFRS 9 thinking in an emerging market context.
 
-## Metodología
+## Methodology Roadmap
 
-### Transformación de morosidad → PD binaria / continua
-
-Dos especificaciones paralelas:
-1. **PD continua**: `morosidad_t = f(X_{t-1}, ..., X_{t-k})` — OLS/GLS con efectos fijos
-2. **PD binaria**: `default_t = 1 si morosidad_t > umbral_p75` — Logit panel con FE
-
-### Variables explicativas clave
-
-| Variable | Transformación | Hipótesis |
-|----------|---------------|----------|
-| Tasa activa | Nivel + 1er lag | ↑ tasa → ↑ carga financiera → ↑ default |
-| Crecimiento PIB | Ciclo HP (gap) | Recesión → ↑ default |
-| Desempleo | 1era diferencia | ↑ desempleo → ↑ default consumo |
-| Inflación | Nivel | ↑ inflación → erosión ingreso real |
-| Concentración sectorial | HHI cartera | ↑ concentración → ↑ riesgo sistémico |
-| Cartera en riesgo rezagada | AR(1) | Persistencia del ciclo de crédito |
-
-### Selección de modelo: Hausman test
-
-```
-H0: efectos individuales no correlacionados con regresores (RE consistente)
-H1: correlación existe (FE consistente, RE inconsistente)
-Decisión: p < 0.05 → usar Fixed Effects
+```text
+Supervisory Data Collection (SBS / BCE)
+        ↓
+Panel Construction by bank × period
+        ↓
+Target Definition: delinquency / impaired portfolio proxy
+        ↓
+Macroeconomic Feature Merge
+        ↓
+PD Model Estimation
+    ├── Logistic / Fractional response baseline
+    ├── Panel model (bank fixed effects)
+    └── Macro stress sensitivity
+        ↓
+Validation
+    ├── rank ordering
+    ├── calibration
+    ├── temporal stability
+    └── scenario interpretation
 ```
 
-## Targets de validación
+## Planned Datasets
 
-| Métrica | Umbral mínimo | Referencia |
-|---------|--------------|------------|
-| Pseudo R² (McFadden) | ≥ 0.20 | Hosmer & Lemeshow (2000) |
-| AUC-ROC | ≥ 0.70 | Basel BIS WP No.14 |
-| Breusch-Godfrey (autocorr.) | p > 0.05 | Greene (2018) |
-| Wooldridge test (serial corr.) | p > 0.05 | Wooldridge (2002) |
+| Source | Use |
+|---|---|
+| SBS Ecuador | delinquency, cartera bruta, cartera improductiva, provisions, bank-level aggregates |
+| BCE Ecuador | GDP proxy, inflation, liquidity / credit aggregates, external conditions |
+| Internal synthetic panel transforms | lagged features, growth rates, stress variables |
 
-## Referencias
+## Planned Outputs
 
-- Jiménez, G. & Saurina, J. (2006). *Credit Cycles, Credit Risk, and Prudential Regulation*. International Journal of Central Banking.
-- Pesaran, M. H. (2015). *Time Series and Panel Data Econometrics*. Oxford University Press.
-- BIS (2005). *Studies on the Validation of Internal Rating Systems*. Working Paper No. 14.
-- SBS Ecuador. *Boletines Financieros Mensuales*. https://www.superbancos.gob.ec/estadisticas/portalestudios/
-- BCE Ecuador. *Estadísticas Macroeconómicas*. https://www.bce.fin.ec/
+- panel dataset bank × month (or quarter)
+- delinquency proxy and PD target construction note
+- exploratory macro-credit dashboard
+- baseline PD model
+- challenger panel specification
+- stress scenario note for portfolio deterioration
+- final HTML report
+
+## Folder Logic
+
+```text
+02_pd_estimation/
+├── data/
+├── notebooks/
+├── reports/
+└── README.md
+```
+
+## Planned Notebooks
+
+| # | Notebook | Content |
+|---|---|---|
+| 01 | `01_data_collection_sbs.ipynb` | fetch, clean and standardize SBS series |
+| 02 | `02_panel_construction.ipynb` | build bank × period panel and target |
+| 03 | `03_eda_macro_credit.ipynb` | macro-credit diagnostics and segmentation |
+| 04 | `04_pd_model_baseline.ipynb` | baseline PD estimation |
+| 05 | `05_panel_and_stress_testing.ipynb` | panel sensitivity and stress scenarios |
+| 06 | `06_final_report_export.ipynb` | HTML report + presentation assets |
+
+## Modeling Philosophy
+
+This is **not** a retail application scorecard. It is a **portfolio / supervisory PD framework**. Therefore the design priorities differ:
+
+- temporal consistency over cross-sectional fit,
+- explainability over black-box complexity,
+- macro sensitivity over static discrimination,
+- robustness to small-sample local data constraints.
+
+## Initial Variables to Track
+
+- non-performing loans ratio
+- overdue portfolio ratio
+- provision coverage
+- credit growth
+- portfolio composition
+- bank size / concentration
+- inflation
+- domestic activity proxy
+- interest-rate / liquidity proxy
+- external shock controls
+
+## Expected Technical Challenges
+
+- public data may be fragmented across XLS/XLSX/PDF bulletins,
+- series definitions may change through time,
+- target PD may need to be proxied from delinquency deterioration,
+- panel depth may be limited for smaller institutions,
+- stationarity and structural breaks will matter more than in consumer datasets.
+
+## Research Positioning
+
+The end product should read like a junior **bank risk analytics note**, not a Kaggle notebook.
